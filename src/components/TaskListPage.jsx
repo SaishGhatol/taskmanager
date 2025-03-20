@@ -35,7 +35,7 @@ import {
   Add as AddIcon 
 } from '@mui/icons-material';
 import KeyboardDoubleArrowUpIcon from '@mui/icons-material/KeyboardDoubleArrowUp';
-import { fetchTasks, markTaskAsComplete } from '../api/taskApi';
+import { fetchTasks, markTaskAsComplete, deleteTask } from '../api/taskApi';
 import CreateTaskModal from './CreateTaskModal';
 
 const TaskListPage = () => {
@@ -221,6 +221,34 @@ const TaskListPage = () => {
     });
   };
   
+  // Handle mark task as complete and delete it
+  const handleMarkAsCompleteAndDelete = async () => {
+    try {
+      await markTaskAsComplete(selectedTask.id); // Mark task as complete
+      await deleteTask(selectedTask.id); // Delete the task
+
+      // Update local state by removing the deleted task
+      const updatedTasks = tasks.filter((task) => task.id !== selectedTask.id);
+      setTasks(updatedTasks);
+
+      setSnackbar({
+        open: true,
+        message: 'Task marked as complete and deleted successfully!',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error completing and deleting task:', error.message);
+
+      setSnackbar({
+        open: true,
+        message: 'Failed to complete and delete task. Please try again.',
+        severity: 'error'
+      });
+    } finally {
+      handleCloseConfirmDialog();
+    }
+  };
+
   // Handle snackbar close
   const handleCloseSnackbar = () => {
     setSnackbar(prev => ({
@@ -470,18 +498,17 @@ const TaskListPage = () => {
         aria-describedby="alert-dialog-description"
       >
         <DialogTitle id="alert-dialog-title">
-          {"Mark task as complete?"}
+          {"Mark task as complete and delete?"}
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
-            Are you sure you want to mark the task "{selectedTask?.title}" as complete?
-            This action cannot be undone.
+            Are you sure you want to mark the task "{selectedTask?.title}" as complete and delete it? This action cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseConfirmDialog}>Cancel</Button>
-          <Button onClick={handleMarkAsComplete} autoFocus variant="contained">
-            Complete Task
+          <Button onClick={handleMarkAsCompleteAndDelete} autoFocus variant="contained">
+            Confirm
           </Button>
         </DialogActions>
       </Dialog>

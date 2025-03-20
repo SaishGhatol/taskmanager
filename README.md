@@ -13,7 +13,7 @@ A modern, responsive task management interface built with React and Material UI.
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/27d8aef9-b10a-40e3-94ce-a47d95e63c13)
-page 2
+Page 2
 ![image](https://github.com/user-attachments/assets/82f0dd9e-1de7-458c-a6e2-80b78209d1a7)
 
 

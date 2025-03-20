@@ -7,18 +7,114 @@ import {
   Button,
   TextField,
   FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   FormHelperText,
-  Grid
+  Grid,
+  Typography,
+  Box,
+  Chip,
+  IconButton,
+  InputAdornment,
+  Divider
 } from '@mui/material';
+import { styled, alpha } from '@mui/material/styles';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
 import { LocalizationProvider, DateTimePicker } from '@mui/x-date-pickers';
 import { createTask } from '../api/taskApi';
+import {
+  Close,
+  AccessTime,
+  ArrowForward,
+  PersonOutline,
+  Link,
+  Notes,
+  Call,
+  Email,
+  Videocam
+} from '@mui/icons-material';
+
+// Enhanced Styled Components
+const StyledDialog = styled(Dialog)(({ theme }) => ({
+  '& .MuiDialog-paper': {
+    borderRadius: 20,
+    boxShadow: '0 24px 48px rgba(0,0,0,0.16)',
+    overflow: 'hidden',
+    background: theme.palette.background.paper,
+    width: '640px',
+    maxWidth: '100%'
+  }
+}));
+
+const TaskHeader = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: theme.spacing(3),
+  background: `linear-gradient(45deg, ${alpha(theme.palette.primary.main, 0.08)}, ${theme.palette.background.paper})`,
+  borderBottom: `1px solid ${alpha(theme.palette.divider, 0.2)}`
+}));
+
+const FormSection = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(0, 3),
+  margin: theme.spacing(2, 0)
+}));
+
+const PriorityChip = styled(Chip)(({ theme, priority }) => {
+  const colorMap = {
+    high: theme.palette.error,
+    medium: theme.palette.warning,
+    low: theme.palette.success
+  };
+  
+  const colors = colorMap[priority] || theme.palette.grey;
+  
+  return {
+    fontWeight: 600,
+    borderRadius: 8,
+    padding: theme.spacing(0.5, 1.5),
+    border: `2px solid ${alpha(colors.main, 0.3)}`,
+    color: colors.main,
+    backgroundColor: alpha(colors.main, 0.08),
+    '&:hover': {
+      backgroundColor: alpha(colors.main, 0.15)
+    },
+    '&.Mui-selected': {
+      backgroundColor: colors.main,
+      color: colors.contrastText
+    }
+  };
+});
+
+const TypeChip = styled(Chip)(({ theme, selected }) => ({
+  borderRadius: 8,
+  padding: theme.spacing(1, 2),
+  border: `2px solid ${selected ? theme.palette.primary.main : alpha(theme.palette.text.secondary, 0.2)}`,
+  backgroundColor: selected ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+  color: selected ? theme.palette.primary.main : theme.palette.text.secondary,
+  fontWeight: 600,
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    borderColor: theme.palette.primary.main,
+    backgroundColor: alpha(theme.palette.primary.main, 0.15)
+  }
+}));
+
+const StyledButton = styled(Button)(({ theme }) => ({
+  borderRadius: 12,
+  padding: theme.spacing(1.25, 2.5),
+  fontWeight: 700,
+  letterSpacing: 0.5,
+  transition: 'all 0.2s ease',
+  '&.MuiButton-contained': {
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    '&:hover': {
+      transform: 'translateY(-1px)',
+      boxShadow: '0 6px 16px rgba(0,0,0,0.15)'
+    }
+  }
+}));
 
 const CreateTaskModal = ({ open, onClose, onTaskCreated }) => {
-  const initialFormState = {
+  const [form, setForm] = useState({
     title: '',
     type: '',
     priority: '',
@@ -26,277 +122,257 @@ const CreateTaskModal = ({ open, onClose, onTaskCreated }) => {
     assignedTo: '',
     dueDate: null,
     notes: ''
-  };
+  });
   
-  const [form, setForm] = useState(initialFormState);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  
-  // Handle form input changes
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Clear error for this field if it exists
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: null
-      }));
-    }
+
+  const handleChange = (name, value) => {
+    setForm(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: null }));
   };
-  
-  // Handle date change
-  const handleDateChange = (newValue) => {
-    setForm(prev => ({
-      ...prev,
-      dueDate: newValue
-    }));
-    
-    // Clear error for this field if it exists
-    if (errors.dueDate) {
-      setErrors(prev => ({
-        ...prev,
-        dueDate: null
-      }));
-    }
-  };
-  
-  // Validate form
+
   const validateForm = () => {
     const newErrors = {};
-    
-    if (!form.title.trim()) {
-      newErrors.title = 'Task name is required';
-    }
-    
-    if (!form.type) {
-      newErrors.type = 'Task type is required';
-    }
-    
-    if (!form.priority) {
-      newErrors.priority = 'Priority is required';
-    }
-    
-    if (!form.dueDate) {
-      newErrors.dueDate = 'Due date is required';
-    }
-    
+    if (!form.title.trim()) newErrors.title = 'Required';
+    if (!form.type) newErrors.type = 'Required';
+    if (!form.priority) newErrors.priority = 'Required';
+    if (!form.dueDate) newErrors.dueDate = 'Required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-  
-  // Handle form submit
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-    
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
     try {
       setLoading(true);
-      
-      // Prepare task data
-      const taskData = {
-        ...form,
-        completed: false,
-        id: `task-${Date.now()}` // Generate a unique ID for mock data
-      };
-      
-      // Call API to create task
+      const taskData = { ...form, id: `task-${Date.now()}`, completed: false };
       const createdTask = await createTask(taskData);
-      
-      // Reset form
-      setForm(initialFormState);
-      
-      // Notify parent component
       onTaskCreated(createdTask);
-      
-      // Close modal
-      onClose();
+      handleClose();
     } catch (error) {
-      console.error('Error creating task:', error);
-      
-      
-      setErrors(prev => ({
-        ...prev,
-        form: 'Failed to create task. Please try again.'
-      }));
+      setErrors({ form: 'Failed to create task. Please try again.' });
     } finally {
       setLoading(false);
     }
   };
-  
-  // Handle dialog close
+
   const handleClose = () => {
-    setForm(initialFormState);
+    setForm({
+      title: '',
+      type: '',
+      priority: '',
+      associatedRecord: '',
+      assignedTo: '',
+      dueDate: null,
+      notes: ''
+    });
     setErrors({});
     onClose();
   };
-  
+
   return (
-    <Dialog  
-    open={open} 
-    onClose={handleClose}
-    fullWidth
-    maxWidth="sm"
-  >
-    <DialogTitle>Create New Task</DialogTitle>
-    <form onSubmit={handleSubmit}>
-      <DialogContent>
-        <Grid container spacing={2}>
-          {/* Task Name */}
-          <Grid item xs={12}>
-            <TextField
-              autoFocus
-              name="title"
-              label="Task Name"
-              fullWidth
-              variant="outlined"
-              value={form.title}
-              onChange={handleChange}
-              error={!!errors.title}
-              helperText={errors.title}
-              required
-              margin="normal"
-            />
-          </Grid>
-          
-          {/* Task Type & Priority in one row */}
-          <Grid item xs={12} sm={6}>
-            <FormControl 
-              fullWidth
-              error={!!errors.type}
-              required
-              margin="normal"
-            >
-              <InputLabel id="task-type-select-label">Task Type</InputLabel>
-              <Select
-                labelId="task-type-select-label"
-                id="task-type-select"
-                name="type"
-                value={form.type}
-                label="Task Type"
-                onChange={handleChange}
-              >
-                <MenuItem value="call">Call</MenuItem>
-                <MenuItem value="email">Email</MenuItem>
-                <MenuItem value="meeting">Meeting</MenuItem>
-              </Select>
-              {errors.type && <FormHelperText>{errors.type}</FormHelperText>}
-            </FormControl>
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <FormControl 
-              fullWidth
-              error={!!errors.priority}
-              required
-              margin="normal"
-            >
-              <InputLabel id="priority-select-label">Priority</InputLabel>
-              <Select
-                labelId="priority-select-label"
-                id="priority-select"
-                name="priority"
-                value={form.priority}
-                label="Priority"
-                onChange={handleChange}
-              >
-                <MenuItem value="high">High</MenuItem>
-                <MenuItem value="medium">Medium</MenuItem>
-                <MenuItem value="low">Low</MenuItem>
-              </Select>
-              {errors.priority && <FormHelperText>{errors.priority}</FormHelperText>}
-            </FormControl>
-          </Grid>
-          
-          {/* Associated Record */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              name="associatedRecord"
-              label="Associated Record"
-              fullWidth
-              variant="outlined"
-              value={form.associatedRecord}
-              onChange={handleChange}
-              margin="normal"
-            />
-          </Grid>
-          
-          {/* Assigned To */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              name="assignedTo"
-              label="Assigned To"
-              fullWidth
-              variant="outlined"
-              value={form.assignedTo || ''}
-              onChange={handleChange}
-              margin="normal"
-            />
-          </Grid>
-          
-          {/* Due Date & Time */}
-          <Grid item xs={12}>
-            <LocalizationProvider dateAdapter={AdapterDateFns}>
-              <DateTimePicker
-                label="Due Date & Time"
-                value={form.dueDate}
-                onChange={handleDateChange}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    fullWidth
-                    required
-                    error={!!errors.dueDate}
-                    helperText={errors.dueDate}
-                    margin="normal"
+    <StyledDialog open={open} onClose={handleClose}>
+      <TaskHeader>
+        <Typography variant="h5" fontWeight={800} color="text.primary">
+          Create New Task
+        </Typography>
+        <IconButton onClick={handleClose} sx={{ color: 'text.secondary' }}>
+          <Close fontSize="small" />
+        </IconButton>
+      </TaskHeader>
+
+      <form onSubmit={handleSubmit}>
+        <DialogContent sx={{ pt: 0 }}>
+          <FormSection>
+            <Grid container spacing={3}>
+              {/* Task Title */}
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  autoFocus
+                  name="title"
+                  placeholder="What needs to be done?"
+                  value={form.title}
+                  onChange={(e) => handleChange('title', e.target.value)}
+                  error={!!errors.title}
+                  helperText={errors.title}
+                  InputProps={{
+                    sx: {
+                      borderRadius: 3,
+                      fontSize: '1.1rem',
+                      fontWeight: 500,
+                      backgroundColor: alpha('#000', 0.03),
+                      '& fieldset': { borderWidth: 2 }
+                    }
+                  }}
+                />
+              </Grid>
+
+              {/* Task Type */}
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" fontWeight={700} mb={2}>
+                  Task Type
+                </Typography>
+                <Box display="flex" gap={2}>
+                  {[
+                    { value: 'call', label: 'Call', Icon: Call },
+                    { value: 'email', label: 'Email', Icon: Email },
+                    { value: 'meeting', label: 'Meeting', Icon: Videocam }
+                  ].map(({ value, label, Icon }) => (
+                    <TypeChip
+                      key={value}
+                      label={label}
+                      icon={<Icon fontSize="small" />}
+                      selected={form.type === value}
+                      onClick={() => handleChange('type', value)}
+                    />
+                  ))}
+                </Box>
+                {errors.type && <FormHelperText error>{errors.type}</FormHelperText>}
+              </Grid>
+
+              {/* Priority */}
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" fontWeight={700} mb={2}>
+                  Priority Level
+                </Typography>
+                <Box display="flex" gap={2}>
+                  {['high', 'medium', 'low'].map((level) => (
+                    <PriorityChip
+                      key={level}
+                      label={level.charAt(0).toUpperCase() + level.slice(1)}
+                      priority={level}
+                      onClick={() => handleChange('priority', level)}
+                      className={form.priority === level ? 'Mui-selected' : ''}
+                    />
+                  ))}
+                </Box>
+                {errors.priority && <FormHelperText error>{errors.priority}</FormHelperText>}
+              </Grid>
+
+              {/* Due Date */}
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" fontWeight={700} mb={2}>
+                  Due Date & Time
+                </Typography>
+                <LocalizationProvider dateAdapter={AdapterDateFns}>
+                  <DateTimePicker
+                    value={form.dueDate}
+                    onChange={(date) => handleChange('dueDate', date)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        fullWidth
+                        error={!!errors.dueDate}
+                        helperText={errors.dueDate}
+                        InputProps={{
+                          ...params.InputProps,
+                          sx: {
+                            borderRadius: 3,
+                            backgroundColor: alpha('#000', 0.03),
+                            '& fieldset': { borderWidth: 2 }
+                          }
+                        }}
+                      />
+                    )}
+                    components={{ OpenPickerIcon: AccessTime }}
                   />
-                )}
-              />
-            </LocalizationProvider>
-          </Grid>
-          
-          {/* Notes */}
-          <Grid item xs={12}>
-            <TextField
-              name="notes"
-              label="Notes"
-              fullWidth
-              variant="outlined"
-              value={form.notes}
-              onChange={handleChange}
-              multiline
-              rows={2}
-              margin="normal"
-            />
-          </Grid>
-          
-          {/* Form-wide error */}
-          {errors.form && (
-            <Grid item xs={12}>
-              <FormHelperText error>{errors.form}</FormHelperText>
+                </LocalizationProvider>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Divider sx={{ my: 2, borderWidth: 1 }} />
+              </Grid>
+
+              {/* Additional Fields */}
+              <Grid item xs={12} container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Assigned To"
+                    placeholder="Who's responsible?"
+                    value={form.assignedTo}
+                    onChange={(e) => handleChange('assignedTo', e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <PersonOutline color="action" />
+                        </InputAdornment>
+                      ),
+                      sx: { borderRadius: 3 }
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Associated Record"
+                    placeholder="Optional reference"
+                    value={form.associatedRecord}
+                    onChange={(e) => handleChange('associatedRecord', e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Link color="action" />
+                        </InputAdornment>
+                      ),
+                      sx: { borderRadius: 3 }
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={3}
+                    label="Notes"
+                    placeholder="Additional details..."
+                    value={form.notes}
+                    onChange={(e) => handleChange('notes', e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start" sx={{ mt: 1.5 }}>
+                          <Notes color="action" />
+                        </InputAdornment>
+                      ),
+                      sx: { borderRadius: 3 }
+                    }}
+                  />
+                </Grid>
+              </Grid>
             </Grid>
-          )}
-        </Grid>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} disabled={loading}>Cancel</Button>
-        <Button 
-          type="submit"
-          variant="contained"
-          disabled={loading}
-        >
-          {loading ? 'Creating...' : 'Create Task'}
-        </Button>
-      </DialogActions>
-    </form>
-  </Dialog>
+          </FormSection>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha('#000', 0.1)}` }}>
+          <StyledButton
+            onClick={handleClose}
+            variant="text"
+            color="inherit"
+            sx={{ color: 'text.secondary' }}
+          >
+            Cancel
+          </StyledButton>
+          <StyledButton
+            type="submit"
+            variant="contained"
+            disabled={loading}
+            endIcon={!loading && <ArrowForward />}
+            sx={{ 
+              background: 'linear-gradient(45deg, #1976d2, #2196f3)',
+              color: 'white'
+            }}
+          >
+            {loading ? 'Creating...' : 'Create Task'}
+          </StyledButton>
+        </DialogActions>
+      </form>
+    </StyledDialog>
   );
 };
 

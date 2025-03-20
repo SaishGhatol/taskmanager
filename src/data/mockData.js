@@ -22,17 +22,18 @@ const mockTasks = [
       completed: false,
       notes: 'Include team updates and milestone achievements'
     },
+
     {
       id: 'task-3',
-      title: 'Team standup meeting',
+      title: 'Team meeting to discuss project timeline',
       type: 'meeting',
-      priority: 'medium',
-      dueDate: '2025-03-19T09:00:00',
-      associatedRecord: 'Internal',
+      priority: 'high',
+      dueDate: '2025-03-18T15:00:00',
+      associatedRecord: 'Project X',
       assignedTo: 'Amit Kumar',
-      completed: true,
-      notes: 'Daily standup to discuss blockers and progress'
-    },
+      completed: false,
+      notes: 'Review project requirements and assign tasks'
+      },
     {
       id: 'task-4',
       title: 'Review pull request #42',
